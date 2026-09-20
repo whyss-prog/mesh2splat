@@ -1,0 +1,48 @@
+name: Build Windows binary
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-windows:
+    name: Build Mesh2Splat (Windows x64 Release)
+    runs-on: windows-2022
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: >-
+          cmake -S . -B build
+          -G "Visual Studio 17 2022"
+          -A x64
+
+      - name: Build Release binary
+        run: cmake --build build --config Release --target Mesh2Splat --parallel
+
+      - name: Assemble artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifact | Out-Null
+          Copy-Item bin/Release/Mesh2Splat.exe artifact/
+          if (Test-Path res) {
+            Copy-Item res artifact/res -Recurse
+          }
+          @"
+          Repository: whyss-prog/mesh2splat
+          Runner: windows-2022
+          Architecture: x64
+          Configuration: Release
+          Commit: $env:GITHUB_SHA
+          "@ | Set-Content artifact/BUILD_INFO.txt
+
+      - name: Upload Windows binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: mesh2splat-windows-x64-release
+          path: artifact
+          if-no-files-found: error
